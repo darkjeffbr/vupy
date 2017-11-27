@@ -315,7 +315,7 @@ __vupy_help(){
     echo "add: Add a new vagrant virtual machine to vms file"
     echo "syntax: vupy add NAME LOCATION"
     echo "NAME: unique name of the virtual machine"
-    echo "LOCATION: unique name of the virtual machine"
+    echo "LOCATION: Location of the Vagrantfile"
     echo ""
     echo "list: Show the vm names and the location of the Vagrantfile"
     echo "syntax: vupy list"
