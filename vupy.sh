@@ -55,6 +55,54 @@ vupy(){
     esac
 }
 
+#Main vupy help message
+#list all the commands supported
+__vupy_help(){
+    echo "vupy command line vagrant utility tool"
+    echo "Usage: vupy [ add | list | delete | check | up | halt | reload | ssh | cd | help ]"
+    echo ""
+    echo "add: Add a new vagrant virtual machine to vms file"
+    echo "syntax: vupy add NAME LOCATION"
+    echo "NAME: unique name of the virtual machine"
+    echo "LOCATION: Location of the Vagrantfile"
+    echo ""
+    echo "list: Show the vm names and the location of the Vagrantfile"
+    echo "syntax: vupy list"
+    echo ""
+    echo "delete: Delete an entry in the vms file"
+    echo "syntax: vupy delete NAME"
+    echo "NAME: unique name of the virtual machine"
+    echo ""
+    echo "check: Check if the location of a given virtual machine contains a Vagrantfile"
+    echo "syntax: vupy check NAME"
+    echo "NAME: unique name of the virtual machine"
+    echo ""
+    echo "up: Starts a Vagrant virtual machine"
+    echo "syntax: vupy up NAME"
+    echo "NAME: unique name of the virtual machine"
+    echo ""
+    echo "halt: Shutdown a Vagrant virtual machine"
+    echo "syntax: vupy halt NAME"
+    echo "NAME: unique name of the virtual machine"
+    echo ""
+    echo "reload: Reloads a Vagrant virtual machine"
+    echo "syntax: vupy reload NAME"
+    echo "NAME: unique name of the virtual machine"
+    echo ""
+    echo "halt: SSH into a Vagrant virtual machine"
+    echo "syntax: vupy ssh NAME"
+    echo "NAME: unique name of the virtual machine"
+    echo ""
+    echo "cd: Change to the location folder of a vm"
+    echo "syntax: vupy cd NAME"
+    echo "NAME: unique name of the virtual machine"
+    echo ""
+    echo "help: Print this help menu"
+    echo "syntax: vupy help"
+}
+
+##### Utility functions #####
+
 #create the vms files if not exists
 __vupy_touch_vms_file_if_not_exists(){
     if [ ! -e $VUPY_VM_FILE ];then
@@ -168,30 +216,6 @@ __vupy_parse_vms_to_struct(){
     fi
 }
 
-#print each vm struct 
-#with the name and location of the Vagrantfile
-__vupy_list(){
-
-    declare -g vms_struct=( $(__vupy_parse_vms_to_struct) )
-
-    if [ ${#vms_struct[@]} != 0 ];then
-        for vm_struct in ${vms_struct[@]};do
-        declare vm=( $(__vupy_split "${vm_struct}" $_VUPY_VM_SEPARATOR) )
-        echo -e "${vm[0]}\t\t${vm[1]}"
-    done
-    fi
-
-    return $SUCCESS_CODE
-}
-
-#Print the add help
-__vupy_add_help(){
-    echo 'Usage: vupy add NAME LOCATION'
-    echo '  NAME: unique name of a Vagrant VM'
-    echo '  LOCATION: location of the Vagrantfile'
-    return $SUCCESS_CODE
-}
-
 #Write a new entry to vms file
 # $1 vm name
 # $2 location of the Vagrantfile
@@ -199,174 +223,8 @@ __vupy_add_to_vm_file(){
     echo "$1 $2" >> $VUPY_VM_FILE
 }
 
-#Add a new entry to the vms file
-# $1 NAME
-# $2 Vagrantfile LOCATION
-__vupy_add(){
-    if [ $# -lt 2 -o $# -gt 2 ];then
-        __vupy_add_help
-        return $ERROR_CODE
-    fi
-
-    local vmName=$1
-    local vmLocation=$2
-
-    if [ -n "$(__vupy_find_vm $vmName)" ];then
-        echo "$vmName already exists"
-        return $ERROR_CODE    
-    fi
-
-    __vupy_add_to_vm_file $vmName $vmLocation
-
-    return $SUCCESS_CODE
-}
-#Print delete help menu
-__vupy_delete_help(){
-    echo 'Usage: vupy delete NAME'
-    echo '  NAME: unique name of a Vagrant VM'
-    return $SUCCESS_CODE
-}
-
-#Deletes an entry in the vms file
-#which is identified by a vm name
-__vupy_delete(){
-    if [ $# -lt 1 -o $# -gt 1 ];then
-        __vupy_delete_help
-        return $ERROR_CODE
-    fi
-
-    local vmName=$1
-
-    vm=($(__vupy_find_vm $vmName))
-
-    if [ -z "$vm" ];then
-        __vupy_vm_not_found $vmName
-        return $ERROR_CODE
-    fi
-
-    local file_content=""
-    while IFS= read -r line
-    do
-        if [[ $line == ${vmName}* ]];then
-            continue
-        fi
-
-        file_content=${file_content}${line}"\n"
-    done < "$VUPY_VM_FILE"
-
-    if [ ${#file_content} -gt 2 ];then
-        local szFileContentNew=$(expr ${#file_content} - 2)
-        file_content="${file_content:0:$szFileContentNew}" > "$VUPY_VM_FILE"
-    fi
-
-    echo -e "${file_content:0:$szFileContentNew}" > "$VUPY_VM_FILE"
-
-    return $SUCCESS_CODE
-}
-
-#Checks if a given vm name exists
-#and if its locations contains a 
-#file named Vagrantfile
-__vupy_check(){
-    if [ $# -lt 1 -o $# -gt 1 ];then
-        __vupy_check_help
-        return $ERROR_CODE
-    fi
-
-    local vmName=$1
-
-    vm=($(__vupy_find_vm $vmName))
-
-    if [ -z "$vm" ];then
-        __vupy_vm_not_found $vmName
-        return $ERROR_CODE
-    fi
-
-    cd "${vm[1]}"
-
-    foundVagrantfile="false"
-
-    for file in $(ls);
-    do
-        if [ -f $file ];then
-            if [ "$file" == "$VAGRANT_FILE_NAME" ];then
-                foundVagrantfile="true"
-            fi
-        fi
-    done
-
-    if [ $foundVagrantfile == "true" ];then
-        echo "ok"
-    else
-        echo "fail"
-    fi
-
-    cd - > /dev/null
-
-    return $SUCCESS_CODE
-}
-
-#Main vupy help message
-#list all the commands supported
-__vupy_help(){
-    echo "vupy command line vagrant utility tool"
-    echo "Usage: vupy [ add | list | delete | check | up | halt | reload | ssh | cd | help ]"
-    echo ""
-    echo "add: Add a new vagrant virtual machine to vms file"
-    echo "syntax: vupy add NAME LOCATION"
-    echo "NAME: unique name of the virtual machine"
-    echo "LOCATION: Location of the Vagrantfile"
-    echo ""
-    echo "list: Show the vm names and the location of the Vagrantfile"
-    echo "syntax: vupy list"
-    echo ""
-    echo "delete: Delete an entry in the vms file"
-    echo "syntax: vupy delete NAME"
-    echo "NAME: unique name of the virtual machine"
-    echo ""
-    echo "check: Check if the location of a given virtual machine contains a Vagrantfile"
-    echo "syntax: vupy check NAME"
-    echo "NAME: unique name of the virtual machine"
-    echo ""
-    echo "up: Starts a Vagrant virtual machine"
-    echo "syntax: vupy up NAME"
-    echo "NAME: unique name of the virtual machine"
-    echo ""
-    echo "halt: Shutdown a Vagrant virtual machine"
-    echo "syntax: vupy halt NAME"
-    echo "NAME: unique name of the virtual machine"
-    echo ""
-    echo "reload: Reloads a Vagrant virtual machine"
-    echo "syntax: vupy reload NAME"
-    echo "NAME: unique name of the virtual machine"
-    echo ""
-    echo "halt: SSH into a Vagrant virtual machine"
-    echo "syntax: vupy ssh NAME"
-    echo "NAME: unique name of the virtual machine"
-    echo ""
-    echo "cd: Change to the location folder of a vm"
-    echo "syntax: vupy cd NAME"
-    echo "NAME: unique name of the virtual machine"
-    echo ""
-    echo "help: Print this help menu"
-    echo "syntax: vupy help"
-}
-
-#Print check command help information
-__vupy_check_help(){
-    echo "No VM name specified"
-    return $ERROR_CODE
-}
-
-#Print run command help information
-__vupy_run_help(){
-    echo "No VM name specified"
-    return $ERROR_CODE
-}
-
-#Print cd command help information
-__vupy_cd_help(){
-    echo "No VM name specified"
+__vupy_vm_not_found(){
+    echo  "$1 not found"
     return $ERROR_CODE
 }
 
@@ -414,8 +272,151 @@ __vupy_vagrant_status_command(){
     echo "vagrant status"
 }
 
-__vupy_vm_not_found(){
-    echo  "$1 not found"
+#####################################################################################
+#                                     VUPY COMMANDS                                 # 
+#####################################################################################
+
+#Print the add help
+__vupy_add_help(){
+    echo 'Usage: vupy add NAME LOCATION'
+    echo '  NAME: unique name of a Vagrant VM'
+    echo '  LOCATION: location of the Vagrantfile'
+    return $SUCCESS_CODE
+}
+
+#Add a new entry to the vms file
+# $1 NAME
+# $2 Vagrantfile LOCATION
+__vupy_add(){
+    if [ $# -lt 2 -o $# -gt 2 ];then
+        __vupy_add_help
+        return $ERROR_CODE
+    fi
+
+    local vmName=$1
+    local vmLocation=$2
+
+    if [ -n "$(__vupy_find_vm $vmName)" ];then
+        echo "$vmName already exists"
+        return $ERROR_CODE    
+    fi
+
+    __vupy_add_to_vm_file $vmName $vmLocation
+
+    return $SUCCESS_CODE
+}
+
+#print each vm struct 
+#with the name and location of the Vagrantfile
+__vupy_list(){
+
+    declare -g vms_struct=( $(__vupy_parse_vms_to_struct) )
+
+    if [ ${#vms_struct[@]} != 0 ];then
+        for vm_struct in ${vms_struct[@]};do
+        declare vm=( $(__vupy_split "${vm_struct}" $_VUPY_VM_SEPARATOR) )
+        echo -e "${vm[0]}\t\t${vm[1]}"
+    done
+    fi
+
+    return $SUCCESS_CODE
+}
+
+#Print delete help menu
+__vupy_delete_help(){
+    echo 'Usage: vupy delete NAME'
+    echo '  NAME: unique name of a Vagrant VM'
+    return $SUCCESS_CODE
+}
+
+#Deletes an entry in the vms file
+#which is identified by a vm name
+__vupy_delete(){
+    if [ $# -lt 1 -o $# -gt 1 ];then
+        __vupy_delete_help
+        return $ERROR_CODE
+    fi
+
+    local vmName=$1
+
+    vm=($(__vupy_find_vm $vmName))
+
+    if [ -z "$vm" ];then
+        __vupy_vm_not_found $vmName
+        return $ERROR_CODE
+    fi
+
+    local file_content=""
+    while IFS= read -r line
+    do
+        if [[ $line == ${vmName}* ]];then
+            continue
+        fi
+
+        file_content=${file_content}${line}"\n"
+    done < "$VUPY_VM_FILE"
+
+    if [ ${#file_content} -gt 2 ];then
+        local szFileContentNew=$(expr ${#file_content} - 2)
+        file_content="${file_content:0:$szFileContentNew}" > "$VUPY_VM_FILE"
+    fi
+
+    echo -e "${file_content:0:$szFileContentNew}" > "$VUPY_VM_FILE"
+
+    return $SUCCESS_CODE
+}
+
+#Print check command help information
+__vupy_check_help(){
+    echo "No VM name specified"
+    return $ERROR_CODE
+}
+
+#Checks if a given vm name exists
+#and if its locations contains a 
+#file named Vagrantfile
+__vupy_check(){
+    if [ $# -lt 1 -o $# -gt 1 ];then
+        __vupy_check_help
+        return $ERROR_CODE
+    fi
+
+    local vmName=$1
+
+    vm=($(__vupy_find_vm $vmName))
+
+    if [ -z "$vm" ];then
+        __vupy_vm_not_found $vmName
+        return $ERROR_CODE
+    fi
+
+    cd "${vm[1]}"
+
+    foundVagrantfile="false"
+
+    for file in $(ls);
+    do
+        if [ -f $file ];then
+            if [ "$file" == "$VAGRANT_FILE_NAME" ];then
+                foundVagrantfile="true"
+            fi
+        fi
+    done
+
+    if [ $foundVagrantfile == "true" ];then
+        echo "ok"
+    else
+        echo "fail"
+    fi
+
+    cd - > /dev/null
+
+    return $SUCCESS_CODE
+}
+
+#Print run command help information
+__vupy_run_help(){
+    echo "No VM name specified"
     return $ERROR_CODE
 }
 
@@ -444,6 +445,12 @@ __vupy_vagrant_run(){
     cd - > /dev/null
 
     return $SUCCESS_CODE
+}
+
+#Print cd command help information
+__vupy_cd_help(){
+    echo "No VM name specified"
+    return $ERROR_CODE
 }
 
 #Change the actual directory to 
