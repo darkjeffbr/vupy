@@ -44,7 +44,7 @@ vupy(){
             __vupy_cd ${commandArgs[@]}
             ;;
         running)
-            __vupy_running ${commandArgs[@]}
+            __vupy_running
             ;;
         help)
            __vupy_help
@@ -59,7 +59,7 @@ vupy(){
 #list all the commands supported
 __vupy_help(){
     echo "vupy command line vagrant utility tool"
-    echo "Usage: vupy [ add | list | delete | check | up | halt | reload | ssh | cd | help ]"
+    echo "Usage: vupy [ add | list | delete | check | up | halt | reload | ssh | cd | running | help ]"
     echo ""
     echo "add: Add a new vagrant virtual machine to vms file"
     echo "syntax: vupy add NAME LOCATION"
@@ -96,6 +96,9 @@ __vupy_help(){
     echo "cd: Change to the location folder of a vm"
     echo "syntax: vupy cd NAME"
     echo "NAME: unique name of the virtual machine"
+    echo ""
+    echo "running: List all running Vagrant vupy managed virtual machines"
+    echo "syntax: vupy running"
     echo ""
     echo "help: Print this help menu"
     echo "syntax: vupy help"
@@ -245,6 +248,22 @@ __vupy_find_vm(){
     done
 
     echo ${vmFound[@]};
+}
+
+#Checks if VirtualBox is installed
+__vupy_vbox_installed(){
+    local VBOX_MANAGE_BIN="VBoxManage.exe"
+    if [ ! -z "$VBOX_MSI_INSTALL_PATH" ]; then
+        VBOXMANAGE="${VBOX_MSI_INSTALL_PATH}${VBOX_MANAGE_BIN}"
+    else
+        VBOXMANAGE="${VBOX_INSTALL_PATH}${VBOX_MANAGE_BIN}"
+    fi
+
+    if [ -f "${VBOXMANAGE}" ]; then
+        #Convert path to linux format
+        VBOXMANAGE="/"$(echo $VBOXMANAGE | tr -d ':' | tr '\' '//' 2> /dev/null | tr 'C' 'c')
+        echo $VBOXMANAGE
+    fi
 }
 
 #Vagrant up command
@@ -474,33 +493,55 @@ __vupy_cd(){
     return $SUCCESS_CODE
 }
 
+
+#Print running command help information
+__vupy_running_help(){
+    echo "VirtualBox is not installed"
+    return $ERROR_CODE
+}
+
 #List all running vagrant vm
 #Or if a VM is specified then
 #show if this vm is running
 __vupy_running(){
-    if [ $# -lt 1 ];then
-         
-        declare -g vms_struct=( $(__vupy_parse_vms_to_struct) )
 
-        if [ ${#vms_struct[@]} != 0 ];then
-            for vm_struct in ${vms_struct[@]};do
-                declare vm=( $(__vupy_split "${vm_struct}" $_VUPY_VM_SEPARATOR) )
+    local VBOXMANAGE=$(__vupy_vbox_installed)
+    if [ -z "$VBOXMANAGE" ];then
+        __vupy_running_help
+       return $ERROR_CODE
+    fi
+    
+    local runningVBoxVms=$("${VBOXMANAGE}" list runningvms)
+    runningVBoxVms=$(echo $runningVBoxVms | tr -d '"')
 
-                cd "${vm[1]}"
-                #Run the vagrant command
-                $(__vupy_vagrant_status_command) | grep default                
-                cd - > /dev/null
+    # List all running vagrant vupy VMS
+    declare -g vms_struct=( $(__vupy_parse_vms_to_struct) )
 
-                #echo -e "${vm[0]}\t\t${vm[1]}"
-            done
-        else
-            echo -e "No VM found\n\nTry:\n\tvupy add"
-        fi
+    if [ ${#vms_struct[@]} != 0 ];then
+        for vm_struct in ${vms_struct[@]};do
+            declare vm=( $(__vupy_split "${vm_struct}" $_VUPY_VM_SEPARATOR) )
 
+            cd "${vm[1]}"
+
+            #Get VMS name
+            local vmName=$(basename $(pwd))
+
+            #Checks if the current VM has a custom display name
+            #Then replace the vmName with the custom name
+            if [ $(cat $VAGRANT_FILE_NAME | grep v.name | wc -c) -gt 0 ];then
+                vmName=$(cat $VAGRANT_FILE_NAME | grep v.name | tr -d ' ' | cut -d '"' -f 2)
+            fi
+            
+            if [ $(echo $runningVBoxVms | grep ^"$vmName" | wc -c) -gt 0 ];then
+                #Found Running VM
+                echo "${vm[0]}"
+            fi
+            
+            cd - > /dev/null
+
+        done
     else
-   
-        echo "....."
-
+        echo -e "No VM found\n\nTry:\n\tvupy add"
     fi
 
 }
