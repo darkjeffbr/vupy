@@ -4,7 +4,7 @@ A Vagrant command line wrapper.
 If you are tired of the need to go the a specific folder to run Vagrant command, vupy is your tool.
 Vupy helps you run vagrant command from any folder.
 
-##Installing vupy
+## Installing vupy ##
 
 First, you need to have [Git Bash](https://git-scm.com/download/win "Git Bash") installed.
 
