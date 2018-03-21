@@ -89,7 +89,7 @@ __vupy_help(){
     echo "syntax: vupy reload NAME"
     echo "NAME: unique name of the virtual machine"
     echo ""
-    echo "halt: SSH into a Vagrant virtual machine"
+    echo "ssh: SSH into a Vagrant virtual machine"
     echo "syntax: vupy ssh NAME"
     echo "NAME: unique name of the virtual machine"
     echo ""
